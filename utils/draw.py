@@ -5,6 +5,7 @@ from math import sin, cos, radians
 DISP_WIDTH      = 64
 DISP_HEIGHT     = 32
 
+
 def draw_text(
         text: str,
         width: int = DISP_WIDTH,
@@ -67,6 +68,8 @@ def draw_time(text: str,
     img = Image.new("RGB", (width, height))
     draw = ImageDraw.Draw(img)
 
+    frames = []
+
     try:
         font = ImageFont.truetype("./fonts/JetBrainsMono/JetBrainsMonoNL-Bold.ttf", fontsize)
     except OSError:
@@ -127,10 +130,28 @@ def draw_time(text: str,
         p = Text("P", draw, font=ImageFont.truetype("./fonts/JetBrainsMono/JetBrainsMonoNL-Thin.ttf", 4))
         draw.text(p.coords(width - h_space, height - v_space - minute.height), p.text, fill=fg)
 
+    frames.append(img)
+    
+    f2 = img.copy()
+    f2draw = ImageDraw.Draw(f2)
+    colon = Text(":", font=font, draw=f2draw)
+    f2draw.text(colon.coords(width-h_space-2, v_space+2), colon.text, font=colon.font, fill=fg)
+
+    frames.append(f2)
+
+    
 
 
     buf = BytesIO()
-    img.save(buf, "WEBP")
+    # img.save(buf, "WEBP")
+
+    frames[0].save(
+        buf, "WEBP",
+        save_all=True,
+        append_images=frames[1:],
+        duration=1000,
+        loop=0
+    )
     return buf.getvalue()
 
 

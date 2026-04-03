@@ -1,7 +1,5 @@
-from apps.AppBase import App
-from apps.TimeApp import TimeApp
 from collections.abc import Sequence
-
+from models.App import App
 
 
 class AppCarousel():
@@ -18,18 +16,11 @@ class AppCarousel():
 
 
     def render_current(self) -> bytes:
-
         curr = self.apps[self.current_app_index]
-
-        if not curr.is_stale():
-            curr.update()
-        
+        curr.update()
         img_bytes = curr.render()
         self.advance_app()
         return img_bytes
     
     def advance_app(self):
         self.current_app_index = (self.current_app_index + 1) % len(self.apps)
-
-    
-
