@@ -74,8 +74,25 @@ def flights_overhead_update(config: dict) -> dict | None:
 
 
 def flights_overhead_render(cache: dict) -> bytes:
-
+    if cache is None:
+        return draw_flight(flights={
+            "flight_no": "",
+            "airline": "",
+            "origin": {"code": "---"},
+            "destination": {"code": "---"},
+        })
     return draw_flight(flights=cache)
+
+LOGO_SIZE = 16
+LOGO_DIR = "./assets/airline_logos"
+AIRLINE_LOGOS = {
+    "american": f"{LOGO_DIR}/aa.jpg",
+    "delta": f"{LOGO_DIR}/delta.jpg",
+    "united": f"{LOGO_DIR}/united.png",
+    "southwest": f"{LOGO_DIR}/southwest.jpg",
+    "spirit": f"{LOGO_DIR}/spirit.jpg",
+}
+DEFAULT_LOGO = f"{LOGO_DIR}/generic_plane.png"
 
 def draw_flight(flights: dict,
                     width: int = DISP_WIDTH,
@@ -83,29 +100,42 @@ def draw_flight(flights: dict,
                     fontsize: int = 8,
                     bg: tuple = (0, 0, 0),
                     fg: tuple = (255, 255, 255),
-                    align: tuple = ('c', 'c')
                 ):
-    
+
     img = Image.new("RGB", (width, height))
     draw = ImageDraw.Draw(img)
 
     try:
-        font = ImageFont.truetype("./fonts/dogica/dogicapixel.ttf", fontsize, layout_engine=ImageFont.Layout.BASIC)
+        font = ImageFont.truetype("./fonts/Minecraft.ttf", fontsize, layout_engine=ImageFont.Layout.BASIC)
     except Exception as e:
         font = ImageFont.load_default()
 
-    no = Text(flights["flight_no"], draw, font)
-    airline = Text(flights["airline"], draw, font)
-    origin = Text(flights["origin"]["code"], draw, font)
-    dest = Text(flights["destination"]["code"], draw, font)
-
     margin = 2
 
-    draw.text(airline.coords(margin, margin), airline.text, font=font, fill=fg)
-    draw.text(no.coords(margin, (2*margin)+airline.height), no.text, font=font, fill=fg)
-    
-    draw.text(origin.coords(margin, (3*margin)+airline.height+no.height), origin.text, font=font, fill=fg)
-    draw.text(dest.coords(margin+origin.width+4, (3*margin)+airline.height+no.height), dest.text, font=font, fill=fg)
+    # -- Top left: airline logo --
+    airline_name = flights["airline"].lower()
+    logo_path = DEFAULT_LOGO
+    for keyword, path in AIRLINE_LOGOS.items():
+        if keyword in airline_name:
+            logo_path = path
+            break
+    try:
+        logo = Image.open(logo_path).convert("RGBA").convert("RGB")
+        logo = logo.resize((LOGO_SIZE, LOGO_SIZE))
+        img.paste(logo, (margin, margin))
+    except Exception:
+        pass
+
+    logo_right = margin + LOGO_SIZE + 2  # text starts after the logo
+
+    # -- Top right: origin → dest --
+    route_str = f"{flights['origin']['code']}>{flights['destination']['code']}"
+    route = Text(route_str, draw, font)
+    draw.text(route.coords(width - margin - route.width, margin), route_str, font=font, fill=fg)
+
+    # -- Bottom: airline name --
+    airline = Text(flights["airline"], draw, font)
+    draw.text(airline.coords(margin, height - margin - airline.height), airline.text, font=font, fill=fg)
 
     buf = BytesIO()
     img.save(buf, "WEBP")
