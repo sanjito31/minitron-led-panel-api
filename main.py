@@ -25,10 +25,10 @@ server.add_middleware(
 
 @server.get("/api/test")
 async def test():
-    from apps import weather_app
+    from apps import mta_app
 
-    weather_app.update()
-    return Response(content=weather_app.render(), media_type="image/webp")
+    mta_app.update()
+    return Response(content=mta_app.render(), media_type="image/webp")
 
 
 # ----------------------------------------------

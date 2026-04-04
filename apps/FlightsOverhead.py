@@ -90,7 +90,7 @@ def draw_flight(flights: dict,
     draw = ImageDraw.Draw(img)
 
     try:
-        font = ImageFont.truetype("./fonts/Minecraft.ttf", fontsize, layout_engine=ImageFont.Layout.BASIC)
+        font = ImageFont.truetype("./fonts/dogica/dogicapixel.ttf", fontsize, layout_engine=ImageFont.Layout.BASIC)
     except Exception as e:
         font = ImageFont.load_default()
 
