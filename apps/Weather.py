@@ -3,8 +3,19 @@ from utils.TimeKeeper import now
 from utils.draw import Text, DISP_HEIGHT, DISP_WIDTH
 from config import settings
 import requests
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageOps
 from io import BytesIO
+
+ICON_DIR = "./assets/weather"
+ICON_SIZE = 16
+WEATHER_ICONS = {
+    "clear": f"{ICON_DIR}/sunny-day.png",
+    "clouds": f"{ICON_DIR}/cloudy.png",
+    "rain": f"{ICON_DIR}/rainy.png",
+    "drizzle": f"{ICON_DIR}/rainy.png",
+    "thunderstorm": f"{ICON_DIR}/rainy.png",
+}
+DEFAULT_ICON = f"{ICON_DIR}/cloudy.png"
 
 WEATHER_API_REQ_INTERVAL = 600  # 10 minutes
 
@@ -90,11 +101,24 @@ def draw_weather(   weather: dict,
     # draw.line([(sun_rays(45+90, 14)), (sun_rays(45+90, 18))], fill=yellow)
     # draw.line([(sun_rays(65+90, 14)), (sun_rays(65+90, 18))], fill=yellow)
     
-    draw.text(description.coords(width-1-margin-description.width, height-1-margin-description.height), description.text, font=font, fill=fg)
-    # draw.text(description.coords(0, 0), description.text, font=font, fill=1)
+    # -- Top left: weather icon --
+    desc_lower = weather.get("description", "").lower()
+    icon_path = DEFAULT_ICON
+    for keyword, path in WEATHER_ICONS.items():
+        if keyword in desc_lower:
+            icon_path = path
+            break
+    try:
+        icon = Image.open(icon_path).convert("RGBA").convert("RGB")
+        icon = ImageOps.invert(icon)
+        icon = icon.resize((24, 24))
+        img.paste(icon, (0, 0))
+    except Exception:
+        pass
 
+    # -- Bottom right: temp and description --
+    draw.text(description.coords(width-1-margin-description.width, height-1-margin-description.height), description.text, font=font, fill=fg)
     draw.text(temp.coords(width-1-margin-temp.width, height-1-(2*margin)-temp.height-description.height), temp.text, font=font, fill=fg)
-    # draw.text(temp.coords(0, 15), temp.text, font=font, fill=1)
 
 
     buf = BytesIO()
