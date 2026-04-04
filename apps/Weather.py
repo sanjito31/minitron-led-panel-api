@@ -52,56 +52,22 @@ def draw_weather(   weather: dict,
                     fontsize: int = 8,
                     bg: tuple = (0, 0, 0),
                     fg: tuple = (255, 255, 255),
-                    align: tuple = ('c', 'c')
                 ):
-    
-    # mask = Image.new("1", (DISP_WIDTH, DISP_HEIGHT), 0)
-    # draw = ImageDraw.Draw(mask)
-    
-    
-    img = Image.new("RGB", (width, height))
-    draw = ImageDraw.Draw(img)
+
+    tmp = Image.new("RGB", (width, height))
+    tmp_draw = ImageDraw.Draw(tmp)
 
     try:
-        # font = ImageFont.truetype("./fonts/JetBrainsMono/JetBrainsMonoNL-Regular.ttf", fontsize)
         font = ImageFont.truetype("./fonts/early_gameboy.ttf", fontsize, layout_engine=ImageFont.Layout.BASIC)
     except Exception as e:
         font = ImageFont.load_default()
 
-    temp = Text(weather["temp"]+"F", draw, font)
-    description = Text(weather["description"], draw, font)
+    temp = Text(weather["temp"]+"F", tmp_draw, font)
+    description = Text(weather["description"], tmp_draw, font)
 
     margin = 2
 
-    # then apply color
-    # img = Image.new("RGB", (DISP_WIDTH, DISP_HEIGHT), bg)
-    # img.paste(Image.new("RGB", img.size, fg), mask=mask)
-    
-    # icon = Image.open("./assets/weather/cloud.png").convert("RGBA")
-    # icon = icon.resize((24, 24))
-
-    # color = Image.new("RGBA", icon.size, (255, 255, 255, 255))
-    # color.putalpha(icon.getchannel("A"))
-
-    # img.paste(color, (0, 0), mask=color)
-
-
-    # yellow = (255, 255, 0)
-
-    # draw.circle((2, 2), 10, fill=yellow, outline=yellow)
-    # draw.line([(2, 14), (2, 18)], fill=yellow)
-    # draw.line([(14, 2), (18, 2)], fill=yellow)
-
-    # def sun_rays(angle, length):
-    #     x = length * sin(radians(angle)) + 2
-    #     y = length * -cos(radians(angle)) + 2
-    #     return x, y
-
-    # draw.line([(sun_rays(25+90, 14)), (sun_rays(25+90, 18))], fill=yellow)
-    # draw.line([(sun_rays(45+90, 14)), (sun_rays(45+90, 18))], fill=yellow)
-    # draw.line([(sun_rays(65+90, 14)), (sun_rays(65+90, 18))], fill=yellow)
-    
-    # -- Top left: weather icon --
+    # -- Load weather icon --
     desc_lower = weather.get("description", "").lower()
     icon_path = DEFAULT_ICON
     for keyword, path in WEATHER_ICONS.items():
@@ -109,20 +75,88 @@ def draw_weather(   weather: dict,
             icon_path = path
             break
     try:
-        icon = Image.open(icon_path).convert("RGBA").convert("RGB")
-        icon = ImageOps.invert(icon)
-        icon = icon.resize((24, 24))
-        img.paste(icon, (0, 0))
+        icon_img = Image.open(icon_path).convert("RGBA").convert("RGB")
+        icon_img = ImageOps.invert(icon_img)
+        icon_img = icon_img.resize((24, 24))
     except Exception:
-        pass
+        icon_img = None
 
-    # -- Bottom right: temp and description --
-    draw.text(description.coords(width-1-margin-description.width, height-1-margin-description.height), description.text, font=font, fill=fg)
-    draw.text(temp.coords(width-1-margin-temp.width, height-1-(2*margin)-temp.height-description.height), temp.text, font=font, fill=fg)
+    # -- Final positions for each element --
+    icon_x, icon_y = 0, 0
+    icon_w, icon_h = 24, 24
 
+    desc_x = width - 1 - margin - description.width
+    desc_y = height - 1 - margin - description.height
+
+    temp_x = width - 1 - margin - temp.width
+    temp_y = height - 1 - (2 * margin) - temp.height - description.height
+
+    # -- Define elements: (name, final_y, height, stagger_frame) --
+    # Each element starts hidden below its final box and slides up
+    ANIM_FRAMES = 10      # frames per element to fully reveal
+    FRAME_DURATION = 100  # ms per frame
+
+    elements = [
+        {"name": "icon",  "start_delay": 0},
+        {"name": "temp",  "start_delay": 0},
+        {"name": "desc",  "start_delay": 0},
+    ]
+
+    total_frames = ANIM_FRAMES
+
+    frames = []
+    for f in range(total_frames):
+        img = Image.new("RGB", (width, height))
+        draw = ImageDraw.Draw(img)
+
+        for el in elements:
+            progress = max(0, min(1.0, (f - el["start_delay"]) / (ANIM_FRAMES - 1)))
+
+            if el["name"] == "icon" and icon_img is not None:
+                # Reveal icon: clip from bottom up
+                visible_h = int(icon_h * progress)
+                if visible_h > 0:
+                    crop_y = icon_h - visible_h
+                    cropped = icon_img.crop((0, crop_y, icon_w, icon_h))
+                    img.paste(cropped, (icon_x, icon_y + crop_y))
+
+            elif el["name"] == "temp":
+                visible_h = int(temp.height * progress)
+                if visible_h > 0:
+                    # Render temp onto a small buffer, crop from bottom
+                    tbuf = Image.new("RGB", (temp.width + 2, temp.height + 2))
+                    tdraw = ImageDraw.Draw(tbuf)
+                    t = Text(weather["temp"]+"F", tdraw, font)
+                    tdraw.text(t.coords(0, 0), t.text, font=font, fill=fg)
+                    crop_y = temp.height - visible_h
+                    cropped = tbuf.crop((0, crop_y, temp.width + 2, temp.height))
+                    paste_y = temp_y + crop_y
+                    img.paste(cropped, (temp_x, paste_y))
+
+            elif el["name"] == "desc":
+                visible_h = int(description.height * progress)
+                if visible_h > 0:
+                    dbuf = Image.new("RGB", (description.width + 2, description.height + 2))
+                    ddraw = ImageDraw.Draw(dbuf)
+                    d = Text(weather["description"], ddraw, font)
+                    ddraw.text(d.coords(0, 0), d.text, font=font, fill=fg)
+                    crop_y = description.height - visible_h
+                    cropped = dbuf.crop((0, crop_y, description.width + 2, description.height))
+                    paste_y = desc_y + crop_y
+                    img.paste(cropped, (desc_x, paste_y))
+
+        frames.append(img)
+
+    durations = [FRAME_DURATION] * (len(frames) - 1) + [10000]
 
     buf = BytesIO()
-    img.save(buf, "WEBP")
+    frames[0].save(
+        buf, "WEBP",
+        save_all=True,
+        append_images=frames[1:],
+        duration=durations,
+        loop=0
+    )
     return buf.getvalue()
     
 
